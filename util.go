@@ -1,4 +1,4 @@
-package sbsdk
+package main
 
 import (
 	"errors"

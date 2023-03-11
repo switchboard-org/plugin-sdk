@@ -1,4 +1,4 @@
-module sbsdk
+module github.com/switchboard-org/plugin-sdk
 
 go 1.20
 

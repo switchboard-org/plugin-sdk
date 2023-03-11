@@ -1,4 +1,4 @@
-package sbsdk
+package main
 
 import (
 	"github.com/hashicorp/go-plugin"
