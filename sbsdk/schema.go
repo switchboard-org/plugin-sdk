@@ -1,4 +1,4 @@
-package main
+package sbsdk
 
 import (
 	"encoding/gob"
