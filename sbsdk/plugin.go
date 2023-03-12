@@ -16,3 +16,9 @@ func (p *ProviderPlugin) Server(*plugin.MuxBroker) (interface{}, error) {
 func (p *ProviderPlugin) Client(_ *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
 	return &ProviderRPCClient{client: c}, nil
 }
+
+var HandshakeConfig = plugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "Switchboard",
+	MagicCookieValue: "Plugin",
+}
