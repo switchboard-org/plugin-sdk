@@ -18,7 +18,7 @@ func (p *ProviderPlugin) Client(_ *plugin.MuxBroker, c *rpc.Client) (interface{}
 }
 
 var HandshakeConfig = plugin.HandshakeConfig{
-	ProtocolVersion:  1,
+	ProtocolVersion:  2,
 	MagicCookieKey:   "Switchboard",
 	MagicCookieValue: "Plugin",
 }

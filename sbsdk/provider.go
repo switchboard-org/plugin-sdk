@@ -12,34 +12,54 @@ import (
 // Every method returns an error as the last return type so that we can gracefully deal with
 // any RPC related errors in the go-plugin client implementation of this interface.
 type Provider interface {
-	//Init is called shortly after loading a plugin, and provides some stateful values
-	//to the provider, such as auth keys.
+	//Init is called shortly after loading a plugin, and gives the provider access to certain
+	//data owned by the runner
 	//
-	//The byte array param must be the result of json.Marshal
-	//from the github.com/zclconf/go-cty/cty/json package and should immediately be
-	//unmarshalled into a cty.Value based on the type as inferred from the hcldec.ObjectSpec from InitSchema
-	Init([]byte) error
+	//It hands the provider an instance of the ContextProvider interface, which will
+	//be implemented by the runner, and various methods should be called to get context/config
+	//information from the runner.
+	Init(runnerProvider RunnerProvider) (ProviderConfig, error)
 
 	//InitSchema is used by the CLI to validate user provided Config, and is also used in Init
 	//to unmarshal the string into a cty.Value
 	InitSchema() (ObjectSchema, error)
-	ActionNames() ([]string, error)
-	ActionEvaluate(name string, config []byte, input []byte) ([]byte, error)
-	ActionConfigurationSchema(name string) (ObjectSchema, error)
-	ActionOutputType(name string) (Type, error)
-	//TriggerNames() ([]string, error)
-	//TriggerConfigurationSchema(Name string) (hcldec.ObjectSpec, error)
-	//TriggerOutputType(Name string) (cty.typeImpl, error)
-	//TriggerRegister(Name string, Config cty.Value, Input cty.Value) (string, error)
-	//TriggerUnregister(Name string, Config cty.Value, Input cty.Value) (string, error)
-	//TriggerShouldListen(Name string) (bool, error)
-	//TriggerListen(Name string, cb func(output cty.Value)) error
-	//TriggerIsRegistered(Name string, Config cty.Value, Input cty.Value) (bool, error)
 
-	// ConfigurationSchema is used by the runner to parse provider configuration set by the user. It will be parsed and
-	// saved in memory and the resulting value will be used as the first param of Action.Evaluate, Trigger.Register,
-	// and Trigger.Unregister. Most often, the parsed value will include global authentication settings.
-	//ConfigurationSchema() (hcldec.ObjectSpec, error)
+	//MapPayloadToTrigger maps an incoming event to a trigger. This is relevant
+	//for providers who send many events to one endpoint, and will not be called
+	//if one event is mapped to one trigger
+	MapPayloadToTrigger([]byte) (string, error)
+
+	//ActionNames returns a list of available actions from a provider
+	ActionNames() ([]string, error)
+	TriggerNames() ([]string, error)
+
+	//ActionEvaluate is the implementation of a particular action as defined by the provider.
+	//It is called by its name as listed in ActionNames. The input param must conform to the schema provided by ActionConfigurationSchema
+	ActionEvaluate(contextId string, name string, input []byte) ([]byte, error)
+	//ActionConfigurationSchema returns a data structure representing the expected schema
+	//in the user-provided hcl configuration file for a particular action
+	ActionConfigurationSchema(name string) (ObjectSchema, error)
+	//ActionOutputType returns a data structure representing the result-type of a particular
+	//action on success. This is used for both converting data to a dynamic cty.Value, and
+	//for validating correct user-defined configuration
+	ActionOutputType(name string) (Type, error)
+
+	//TriggerConfigurationSchema is similar to ActionConfigurationSchema, but for triggers
+	TriggerConfigurationSchema(name string) (ObjectSchema, error)
+	//TriggerOutputType is similar to ActionOutputType, but for triggers
+	TriggerOutputType(name string) (Type, error)
+
+	//CreateSubscription subscribes to the provider for one or all triggers. Some providers
+	//register a subscription for each trigger. Others subscribe for all in one. input param
+	//may be a list of triggers, or a single trigger, as they conform to the configuration schema.
+	//It returns a representation of the resulting state of the subscription
+	CreateSubscription(contextId string, input []byte) ([]byte, error)
+	//ReadSubscription will get the current state value of the trigger from the integration provider
+	ReadSubscription(contextId string, subscriptionId string) ([]byte, error)
+	//UpdateSubscription will update the trigger and return the new state value to the runner
+	UpdateSubscription(contextId string, subscriptionId string, input []byte) ([]byte, error)
+	//DeleteSubscription with remove the trigger and event subscription to the vendor
+	DeleteSubscription(contextId string, subscriptionId string) error
 }
 
 type Function interface {
@@ -56,25 +76,31 @@ type Function interface {
 
 type Action interface {
 	Function
-	// Evaluate accepts two value parameters. The first contains provider Config details. The second
-	//is a value that should map to the Function.ConfigurationSchema output. This
-	// is the main function called by the runner service when a particular action is being processed. In
+	//Evaluate is the main function called by the runner service when a particular action is being processed. In
 	// a standard integration provider, this is where the guts of integration code will be.
-	Evaluate(config cty.Value, input cty.Value) (cty.Value, error)
+	Evaluate(contextId string, input cty.Value) (cty.Value, error)
 }
 
+// Trigger is an interface that maps all entry points for integrations. Triggers are registered
+// with the integration all at once or individually, depending on the provider.
 type Trigger interface {
 	Function
-	IsRegistered(config cty.Value, input cty.Value) (bool, error)
-	// Register accepts two value parameters. The first contains provider Config details. The second is the
-	// Input data for the integration. Register is responsible for working with the respective integration to
-	//register the trigger with switchboard. This may be an event-subscription, polling api, or webhook registration.
-	Register(config cty.Value, input cty.Value) (string, error)
-	Unregister(config cty.Value, input cty.Value) (string, error)
-	// ShouldListen tells the caller if it should listen for messages directly from the plugin.
-	// Only applicable for unique cases like event queues where messages are received at the subscription point
-	ShouldListen() (bool, error)
-	// Listen is passed a callback that will be fired any time a trigger where ShouldListen() = true receives
-	// an event from the subscription point
-	Listen(cb func(output cty.Value)) error
+}
+
+// ProviderConfig is some static information the runner can use to decipher how to process certain types
+// of provider setups.
+type ProviderConfig struct {
+	SubscriptionsRegisteredTogether bool
+}
+
+type ActionEvalData struct {
+	ContextId string
+	Name      string
+	Input     []byte
+}
+
+type SubscriptionData struct {
+	ContextId      string
+	SubscriptionId string
+	InputData      []byte
 }
