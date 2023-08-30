@@ -24,14 +24,8 @@ type Provider interface {
 	//to unmarshal the string into a cty.Value
 	InitSchema() (ObjectSchema, error)
 
-	//MapPayloadToTrigger maps an incoming event to a trigger. This is relevant
-	//for providers who send many events to one endpoint, and will not be called
-	//if one event is mapped to one trigger
-	MapPayloadToTrigger([]byte) (string, error)
-
 	//ActionNames returns a list of available actions from a provider
 	ActionNames() ([]string, error)
-	TriggerNames() ([]string, error)
 
 	//ActionEvaluate is the implementation of a particular action as defined by the provider.
 	//It is called by its name as listed in ActionNames. The input param must conform to the schema provided by ActionConfigurationSchema
@@ -44,25 +38,33 @@ type Provider interface {
 	//for validating correct user-defined configuration
 	ActionOutputType(name string) (Type, error)
 
+	//TriggerKeyNames returns a list of keys that an action can filter by. This method is
+	//used during the validation process to make sure action filters are valid
+	TriggerKeyNames() ([]string, error)
 	//TriggerConfigurationSchema is similar to ActionConfigurationSchema, but for triggers
-	TriggerConfigurationSchema(name string) (ObjectSchema, error)
-	//TriggerOutputType is similar to ActionOutputType, but for triggers
-	TriggerOutputType(name string) (Type, error)
+	TriggerConfigurationSchema() (ObjectSchema, error)
+	//MapPayloadToTriggerKey maps an incoming event to a trigger key. This is helpful
+	//for actions that want to fire on isolated event types and for fetching type hints.
+	//This is particularly useful for triggers that have 2+ event types that the subscription listens to
+	MapPayloadToTriggerKey([]byte) (string, error)
+	//TriggerOutputType provides the runner with a type hint based on the value that gets returned
+	//from MapPayloadToTriggerKey.
+	TriggerOutputType(string) (Type, error)
 
-	//CreateSubscription subscribes to the provider for one or all triggers. Some providers
-	//register a subscription for each trigger. Others subscribe for all in one. input param
-	//may be a list of triggers, or a single trigger, as they conform to the configuration schema.
-	//It returns a representation of the resulting state of the subscription
+	//CreateSubscription subscribes to the provider for one trigger.
+	//It returns a representation of the resulting state of the subscription in raw JSON byte string
 	CreateSubscription(contextId string, input []byte) ([]byte, error)
 	//ReadSubscription will get the current state value of the trigger from the integration provider
+	// in raw JSON byte string
 	ReadSubscription(contextId string, subscriptionId string) ([]byte, error)
 	//UpdateSubscription will update the trigger and return the new state value to the runner
+	// as a raw JSON byte string
 	UpdateSubscription(contextId string, subscriptionId string, input []byte) ([]byte, error)
 	//DeleteSubscription with remove the trigger and event subscription to the vendor
 	DeleteSubscription(contextId string, subscriptionId string) error
 }
 
-type Function interface {
+type Action interface {
 	// ConfigurationSchema returns an ObjectSpec that returns all required/optional blocks and attributes
 	// in an Action or Trigger. This should include all general configuration settings, as well as all details
 	// pertinent to an individual interaction (api call, event publish, etc.) with the integration
@@ -72,19 +74,18 @@ type Function interface {
 	// configuration validation. Note, this does not return an ObjectSchema because that type is primarily
 	// used for helping the calling application know how the hcl Config data should look.
 	OutputType() (Type, error)
-}
-
-type Action interface {
-	Function
 	//Evaluate is the main function called by the runner service when a particular action is being processed. In
 	// a standard integration provider, this is where the guts of integration code will be.
 	Evaluate(contextId string, input cty.Value) (cty.Value, error)
 }
 
 // Trigger is an interface that maps all entry points for integrations. Triggers are registered
-// with the integration all at once or individually, depending on the provider.
+// with the integration for each defined trigger.
 type Trigger interface {
-	Function
+	// ConfigurationSchema returns an ObjectSpec that returns all required/optional blocks and attributes
+	// in an Action or Trigger. This should include all general configuration settings, as well as all details
+	// pertinent to an individual interaction (api call, event publish, etc.) with the integration
+	ConfigurationSchema() (ObjectSchema, error)
 }
 
 // ProviderConfig is some static information the runner can use to decipher how to process certain types

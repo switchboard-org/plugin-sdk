@@ -32,9 +32,9 @@ func (p *ProviderRPCClient) InitSchema() (ObjectSchema, error) {
 	return result, nil
 }
 
-func (p *ProviderRPCClient) MapPayloadToTrigger(data []byte) (string, error) {
+func (p *ProviderRPCClient) MapPayloadToTriggerKey(data []byte) (string, error) {
 	var result string
-	err := p.client.Call("Plugin.MapPayloadToTrigger", data, &result)
+	err := p.client.Call("Plugin.MapPayloadToTriggerKey", data, &result)
 	if err != nil {
 		return "", err
 	}
@@ -44,15 +44,6 @@ func (p *ProviderRPCClient) MapPayloadToTrigger(data []byte) (string, error) {
 func (p *ProviderRPCClient) ActionNames() ([]string, error) {
 	var result []string
 	err := p.client.Call("Plugin.ActionNames", new(interface{}), &result)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (p *ProviderRPCClient) TriggerNames() ([]string, error) {
-	var result []string
-	err := p.client.Call("Plugin.TriggerNames", new(interface{}), &result)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +82,18 @@ func (p *ProviderRPCClient) ActionEvaluate(contextId string, name string, input 
 	return result, nil
 }
 
-func (p *ProviderRPCClient) TriggerConfigurationSchema(name string) (ObjectSchema, error) {
+func (p *ProviderRPCClient) TriggerKeyNames() ([]string, error) {
+	var result []string
+	err := p.client.Call("Plugin.TriggerKeyNames", nil, &result)
+	if err != nil {
+		return []string{}, err
+	}
+	return result, nil
+}
+
+func (p *ProviderRPCClient) TriggerConfigurationSchema() (ObjectSchema, error) {
 	var result ObjectSchema
-	err := p.client.Call("Plugin.TriggerConfigurationSchema", name, &result)
+	err := p.client.Call("Plugin.TriggerConfigurationSchema", nil, &result)
 	if err != nil {
 		return ObjectSchema{}, err
 	}
@@ -190,7 +190,7 @@ func (p *ProviderRPCServer) InitSchema(_ any, reply *ObjectSchema) error {
 }
 
 func (p *ProviderRPCServer) MapPayloadToTrigger(data []byte, reply *string) error {
-	result, err := p.Impl.MapPayloadToTrigger(data)
+	result, err := p.Impl.MapPayloadToTriggerKey(data)
 	if err != nil {
 		return err
 	}
@@ -200,15 +200,6 @@ func (p *ProviderRPCServer) MapPayloadToTrigger(data []byte, reply *string) erro
 
 func (p *ProviderRPCServer) ActionNames(_ any, reply *[]string) error {
 	result, err := p.Impl.ActionNames()
-	if err != nil {
-		return err
-	}
-	*reply = result
-	return nil
-}
-
-func (p *ProviderRPCServer) TriggerNames(_ any, reply *[]string) error {
-	result, err := p.Impl.TriggerNames()
 	if err != nil {
 		return err
 	}
@@ -243,8 +234,8 @@ func (p *ProviderRPCServer) ActionEvaluate(payload ActionEvalData, reply *[]byte
 	return nil
 }
 
-func (p *ProviderRPCServer) TriggerConfigurationSchema(name string, reply *ObjectSchema) error {
-	result, err := p.Impl.TriggerConfigurationSchema(name)
+func (p *ProviderRPCServer) TriggerConfigurationSchema(_ any, reply *ObjectSchema) error {
+	result, err := p.Impl.TriggerConfigurationSchema()
 	if err != nil {
 		return err
 	}

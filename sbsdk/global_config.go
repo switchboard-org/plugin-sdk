@@ -1,13 +1,10 @@
 package sbsdk
 
 type RunnerProvider interface {
-	//UserConfig is a byte string that should conform to the Schema
-	//as specified by Provider.InitSchema method. The contextId parameter
-	//is a specific namespace for a provider (you can have multiple provider configurations
-	//in switchboard). This also provides a future-compatible interface for embedded
-	//integration setups where actions in one workflow may have a dynamic
-	//configuration context
-	UserConfig(contextId string) []byte
+	//UserConfig is a map of byte string arrays, where each byte string array should conform to the Schema
+	//as specified by Provider.InitSchema method when marshaled into cty.JSON. Each key in the map is a context ID
+	//which is essentially a unique configuration of the provider as defined in the user provided config
+	UserConfig() map[string][]byte
 	GlobalConfig() GlobalConfig
 }
 
