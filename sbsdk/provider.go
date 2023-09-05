@@ -4,10 +4,8 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-// Provider is the main interface that must be implemented by every integration provider
-// in order to work with the Switchboard runner service. In addition to provider specific
-// methods, the provider also includes proxy methods to call on specific Action or Trigger
-// implementations (this way, we don't have to register every Action and Trigger as a plugin)
+// Provider is the main network interface that must be implemented by every integration provider
+// in order to work with the Switchboard runner service.
 //
 // Every method returns an error as the last return type so that we can gracefully deal with
 // any RPC related errors in the go-plugin client implementation of this interface.
@@ -64,6 +62,8 @@ type Provider interface {
 	DeleteSubscription(contextId string, subscriptionId string) error
 }
 
+// Action to be implemented by providers for each individual method/endpoint tied the provider.
+// Each action should be inclusive of all possible ways of calling a method/endpoint for the integration.
 type Action interface {
 	// ConfigurationSchema returns an ObjectSpec that returns all required/optional blocks and attributes
 	// in an Action or Trigger. This should include all general configuration settings, as well as all details
@@ -77,15 +77,6 @@ type Action interface {
 	//Evaluate is the main function called by the runner service when a particular action is being processed. In
 	// a standard integration provider, this is where the guts of integration code will be.
 	Evaluate(contextId string, input cty.Value) (cty.Value, error)
-}
-
-// Trigger is an interface that maps all entry points for integrations. Triggers are registered
-// with the integration for each defined trigger.
-type Trigger interface {
-	// ConfigurationSchema returns an ObjectSpec that returns all required/optional blocks and attributes
-	// in an Action or Trigger. This should include all general configuration settings, as well as all details
-	// pertinent to an individual interaction (api call, event publish, etc.) with the integration
-	ConfigurationSchema() (ObjectSchema, error)
 }
 
 // ProviderConfig is some static information the runner can use to decipher how to process certain types

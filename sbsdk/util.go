@@ -1,8 +1,8 @@
 package sbsdk
 
 import (
-	"errors"
 	"github.com/hashicorp/hcl/v2/hcldec"
+	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/json"
 )
 
@@ -30,25 +30,15 @@ func OptionalBlockSchema(name string, nested Schema) *BlockSchema {
 	}
 }
 
-func InvokeActionEvaluation(contextId string, action Action, input []byte) ([]byte, error) {
-	var err error
-	if input == nil {
-		return nil, errors.New("input must not be null")
-	}
-	inputSchema, _ := action.ConfigurationSchema()
-	inputVal, err := json.Unmarshal(input, hcldec.ImpliedType(inputSchema.Decode()))
+func MapInputToCtyValue(input []byte, schema ObjectSchema) (cty.Value, error) {
+	inputVal, err := json.Unmarshal(input, hcldec.ImpliedType(schema.Decode()))
 	if err != nil {
-		return nil, err
+		return cty.NilVal, err
 	}
-	result, err := action.Evaluate(contextId, inputVal)
-	if err != nil {
-		return nil, err
-	}
+	return inputVal, nil
+}
 
-	outputType, _ := action.OutputType()
+func MapCtyValueToByteString(val cty.Value, outputType Type) ([]byte, error) {
 	ctyType := outputType.ToCty()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(result, ctyType)
+	return json.Marshal(val, ctyType)
 }
